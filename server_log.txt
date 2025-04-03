@@ -1,31 +1,8 @@
-[2025-03-28 11:17:36] Login: User David logged in successfully using OTP.
-[2025-03-28 11:17:40] Shut down: Client chose to shut down and disconnected.
-[2025-03-28 11:32:56] Login: User Tim logged in successfully using password.
-[2025-03-28 11:32:57] Server logs accessed by the client.
-[2025-03-28 11:33:05] Server logs accessed by the client.
-[2025-03-28 11:33:08] Shut down: Client chose to shut down and disconnected.
-[2025-03-28 11:52:43] Registration: User Tim registered successfully with email 1440768791@qq.com.
-[2025-03-28 11:52:55] Login: User Tim logged in successfully using password.
-[2025-03-28 11:53:12] Log out: User Tim logged out.
-[2025-03-28 11:53:26] Login failed: Username  does not exist.
-[2025-03-28 11:55:52] Login: User Tim logged in successfully using password.
-[2025-03-28 11:56:04] An error occurred in the post-login menu for user Tim: [Errno 54] Connection reset by peer
-[2025-03-28 11:56:19] Login: User Tim logged in successfully using password.
-[2025-03-28 11:56:21] Log out: User Tim logged out.
-[2025-03-28 11:56:26] Login failed: Username ss does not exist.
-[2025-03-28 11:56:30] Login failed: Username  does not exist.
-[2025-03-29 10:44:56] Login: User Tim logged in successfully using password.
-[2025-03-29 10:44:58] Shut down: User Tim chose to shut down and disconnected.
-[2025-03-29 10:45:05] Promotion: User Tim has been promoted to administrator.
-[2025-03-29 10:45:21] Login: User Tim logged in successfully using password.
-[2025-03-29 10:45:28] Server logs accessed by administrator Tim.
-[2025-03-29 10:45:51] An error occurred in the post-login menu for user Tim: [Errno 32] Broken pipe
-[2025-03-29 10:48:51] Login: User Tim logged in successfully using password.
-[2025-03-29 10:48:53] Server logs accessed by administrator Tim.
-[2025-03-29 10:49:00] Shut down: User Tim chose to shut down and disconnected.
-[2025-03-29 10:56:38] Login: User Tim logged in successfully using password.
-[2025-03-29 10:56:41] Server logs accessed by administrator Tim.
-[2025-03-29 10:56:54] An error occurred in the post-login menu for user Tim: [Errno 32] Broken pipe
-[2025-03-29 11:02:36] Login: User Tim logged in successfully using password.
-[2025-03-29 11:02:41] Server logs accessed by administrator Tim.
-[2025-03-29 11:02:44] Log out: User Tim logged out.
+[2025-04-03 12:46:39] Registration: User Tim registered successfully with email 1440768791@qq.com.
+[2025-04-03 12:47:28] Login: User Tim logged in successfully using password.
+[2025-04-03 12:47:54] File added: Tim created file Mocked_bird.
+[2025-04-03 12:47:59] Show files: Tim viewed their file list.
+[2025-04-03 12:48:06] Log out: User Tim logged out.
+[2025-04-03 12:48:36] Login: User Tim logged in successfully using OTP.
+[2025-04-03 12:49:00] File read: Tim accessed file Mocked_bird.
+[2025-04-03 12:49:07] Shut down: User Tim chose to shut down and disconnected.

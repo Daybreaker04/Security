@@ -21,8 +21,60 @@ def handle_post_login_menu(client_socket):
         elif "Server logs" in response:
             print("Server Logs:\n")
             print(response)  # Print the server logs
+        elif "Enter file name" in response:
+            handle_file_operations(client_socket, response)  # Handle file-related operations
         else:
             print(response)  # Print other responses (e.g., errors)
+
+def handle_file_operations(client_socket, server_prompt):
+    """
+    Handle file-related operations such as adding, editing, deleting, sharing, reading, and showing files.
+
+    Args:
+        client_socket: The socket connected to the server.
+        server_prompt: The initial prompt from the server for the file operation.
+    """
+    # Print the server's prompt and ask the user for the file name
+    print(server_prompt, end=" ")
+    file_name = input()
+
+    # Send the file name to the server
+    client_socket.send(file_name.encode())
+
+    # Receive the next server response
+    response = client_socket.recv(4096).decode().strip()
+
+    if "Enter file content" in response:
+        # Handle adding or editing a file
+        print(response, end=" ")
+        file_content = input()
+
+        # Send the file content to the server
+        client_socket.send(file_content.encode())
+
+        # Receive and print the server's response (e.g., success or error message)
+        response = client_socket.recv(4096).decode().strip()
+        print(response)
+
+    elif "Enter username to share with" in response:
+        # Handle sharing a file
+        print(response, end=" ")
+        username = input()
+
+        # Send the username to the server
+        client_socket.send(username.encode())
+
+        # Receive and print the server's response (e.g., success or error message)
+        response = client_socket.recv(4096).decode().strip()
+        print(response)
+
+    elif "Your Files" in response or "File content" in response:
+        # Handle showing files or reading a file
+        print(response)
+
+    else:
+        # Handle any other server responses
+        print(response)
 
 def main():
     # Ask user for the server IP address

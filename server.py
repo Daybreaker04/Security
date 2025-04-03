@@ -6,6 +6,15 @@ import bcrypt
 import re  # Import re for email validation
 from OTP_Email_sender import generate_secure_otp, send_email  # Import OTP functions
 from datetime import datetime  # Import datetime for timestamps
+# Import file management functions
+from file_management import (
+    handle_add_file,
+    handle_edit_file,
+    handle_delete_file,
+    handle_share_file,
+    handle_read_file,
+    handle_show_files,
+)
 
 # Global lock for database access
 db_lock = threading.RLock()
@@ -40,6 +49,29 @@ def setup_database():
             account_type TEXT NOT NULL DEFAULT 'normal'  -- Default account type is 'normal'
         )
     """)
+
+    # Create files table to track file ownership
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            owner_username TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            FOREIGN KEY (owner_username) REFERENCES users(username)
+        )
+    """)
+
+    # Create shared_files table to manage file sharing
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS shared_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_id INTEGER NOT NULL,
+            shared_with_username TEXT NOT NULL,
+            FOREIGN KEY (file_id) REFERENCES files(id),
+            FOREIGN KEY (shared_with_username) REFERENCES users(username)
+        )
+    """)
+
     # Commit the changes and close the connection
     conn.commit()
     conn.close()
@@ -331,36 +363,63 @@ def post_login_menu(client_socket, username):
             if account_type == "admin":
                 client_socket.send(
                     "Post-login Menu:\n"
-                    "1. Log out\n"
-                    "2. Shut down\n"
-                    "3. Access server logs\n"
-                    "Enter your choice (1/2/3): ".encode()
+                    "1. Add file\n"
+                    "2. Edit file\n"
+                    "3. Delete file\n"
+                    "4. Share file\n"
+                    "5. Read file\n"
+                    "6. Show files\n"
+                    "7. Log out\n"
+                    "8. Shut down\n"
+                    "9. Access server logs\n"
+                    "Enter your choice (1-9): ".encode()
                 )
             else:
                 client_socket.send(
                     "Post-login Menu:\n"
-                    "1. Log out\n"
-                    "2. Shut down\n"
-                    "Enter your choice (1/2): ".encode()
+                    "1. Add file\n"
+                    "2. Edit file\n"
+                    "3. Delete file\n"
+                    "4. Share file\n"
+                    "5. Read file\n"
+                    "6. Show files\n"
+                    "7. Log out\n"
+                    "8. Shut down\n"
+                    "Enter your choice (1-8): ".encode()
                 )
 
             # Receive the client's choice
             choice = client_socket.recv(1024).decode().strip()
 
+            # Handle file-related options
             if choice == "1":
+                handle_add_file(client_socket, username)
+            elif choice == "2":
+                handle_edit_file(client_socket, username)
+            elif choice == "3":
+                handle_delete_file(client_socket, username)
+            elif choice == "4":
+                handle_share_file(client_socket, username)
+            elif choice == "5":
+                handle_read_file(client_socket, username)
+            elif choice == "6":
+                handle_show_files(client_socket, username)
+
+            # Handle logout, shutdown, and access logs
+            elif choice == "7":
                 # Log out: Break the loop and return to the main menu
                 client_socket.send("Logging out...\n".encode())
                 print("Client has logged out and returned to the main menu.")  # Log the logout event
                 log_operation(f"Log out: User {username} logged out.")
                 break
-            elif choice == "2":
+            elif choice == "8":
                 # Shut down: Close the connection and terminate the client
                 client_socket.send("Shutting down the client...\n".encode())
                 client_socket.close()
                 print(f"User {username} chose to shut down and disconnected.")  # Log the shutdown event
                 log_operation(f"Shut down: User {username} chose to shut down and disconnected.")
                 return
-            elif choice == "3" and account_type == "admin":
+            elif choice == "9" and account_type == "admin":
                 # Access server logs: Send the log file to the client
                 try:
                     with open("server_log.txt", "r") as log_file:
@@ -371,13 +430,9 @@ def post_login_menu(client_socket, username):
                 except FileNotFoundError:
                     client_socket.send("Error: Log file not found.\n".encode())
                     print("Error: Log file not found.")  # Debugging statement
-                # Automatically send the menu again
-                continue
             else:
                 # Invalid option or unauthorized access
                 client_socket.send("Invalid option or unauthorized access. Please try again.\n".encode())
-                # Automatically send the menu again
-                continue
     except Exception as e:
         print(f"An error occurred in the post-login menu: {e}")
         log_operation(f"An error occurred in the post-login menu for user {username}: {e}")
