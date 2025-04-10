@@ -1,4 +1,52 @@
 import socket
+import os
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.padding import PKCS7
+import base64
+import secrets
+
+def generate_key(file_name):
+    """Generate and save a secure key for encryption."""
+    # Ensure the "file_key" directory exists
+    key_dir = "file_key"
+    os.makedirs(key_dir, exist_ok=True)
+
+    # Generate the key and save it in the "file_key" directory
+    key = secrets.token_bytes(32)  # Generate a 256-bit key
+    key_path = os.path.join(key_dir, f"{file_name}_key.txt")
+    with open(key_path, 'wb') as key_file:
+        key_file.write(key)
+    return key
+
+def load_key(file_name):
+    """Load the encryption key from the key file."""
+    key_dir = "file_key"
+    key_path = os.path.join(key_dir, f"{file_name}_key.txt")
+    with open(key_path, 'rb') as key_file:
+        return key_file.read()
+
+def encrypt_file_content(content, key):
+    """Encrypt the file content using AES."""
+    iv = secrets.token_bytes(16)  # Generate a random initialization vector
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    padder = PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(content.encode()) + padder.finalize()
+    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+    return base64.b64encode(iv + ciphertext).decode()  # Encode IV and ciphertext together
+
+def decrypt_file_content(ciphertext, key):
+    """Decrypt the file content using AES."""
+    data = base64.b64decode(ciphertext)
+    iv = data[:16]  # Extract the IV
+    ciphertext = data[16:]  # Extract the actual ciphertext
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder = PKCS7(algorithms.AES.block_size).unpadder()
+    plaintext = unpadder.update(padded_data) + unpadder.finalize()
+    return plaintext.decode()
 
 def handle_post_login_menu(client_socket):
     """Handle the post-login menu."""
@@ -21,8 +69,13 @@ def handle_post_login_menu(client_socket):
         elif "Server logs" in response:
             print("Server Logs:\n")
             print(response)  # Print the server logs
+        elif "Download" in response:  # Handle file download
+            download_file_from_server(client_socket)    
+        elif "Upload" in response:  # Handle file upload
+            upload_file_to_server(client_socket)
         elif "Enter file name" in response:
             handle_file_operations(client_socket, response)  # Handle file-related operations
+        
         else:
             print(response)  # Print other responses (e.g., errors)
 
@@ -75,6 +128,80 @@ def handle_file_operations(client_socket, server_prompt):
     else:
         # Handle any other server responses
         print(response)
+
+def upload_file_to_server(client_socket):
+    """Handle uploading a file to the server with encryption."""
+    local_file_path = input("Enter the absolute local file path to upload: ").strip()
+    if not os.path.exists(local_file_path):
+        print(f"Error: File does not exist at '{local_file_path}'")
+        client_socket.send("ERROR".encode())
+        return
+    if not local_file_path.endswith('.txt'):
+        print("Error: Only .txt files are allowed.")
+        client_socket.send("ERROR".encode())
+        return
+
+    try:
+        with open(local_file_path, 'r', encoding='utf-8') as f:
+            file_content = f.read()
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        client_socket.send("ERROR".encode())
+        return
+
+    # Prompt the user for a new name to store the file on the server
+    new_file_name = input("Enter the new name for the file to store on the server: ").strip()
+    if not new_file_name:
+        print("Error: The file name cannot be empty.")
+        client_socket.send("ERROR".encode())
+        return
+
+    key = generate_key(new_file_name)  # Generate and save a key for this file
+    encrypted_content = encrypt_file_content(file_content, key)  # Encrypt the file content
+
+    client_socket.send(new_file_name.encode())  # Send the new file name
+    response = client_socket.recv(4096).decode().strip()
+    if "Wait for new name" in response:
+        client_socket.send(new_file_name.encode())  # Send the new file name again
+        client_socket.send(encrypted_content.encode())  # Send the encrypted content
+        server_response = client_socket.recv(4096).decode().strip()
+        print(server_response)
+
+def download_file_from_server(client_socket):
+    """Handle downloading a file from the server with decryption."""
+    file_name = input("Enter the file name to download (without suffix .txt): ").strip()
+    client_socket.send(file_name.encode())  # Send the file name to the server
+
+    response = client_socket.recv(4096).decode().strip()
+    
+    if response == "File found. Preparing to send content...":  # Match the exact server response
+        # Send confirmation to the server to proceed with sending the file content
+        client_socket.send("Ready to receive file content".encode())
+
+        encrypted_content = client_socket.recv(4096).decode().strip()
+
+        # Prompt the user for a valid destination path
+        while True:
+            dest_path = input("Enter the local absolute destination path to save the file: ").strip()
+            if os.path.isdir(dest_path):
+                dest_path = os.path.join(dest_path, file_name)
+                break
+            else:
+                print("Error: The specified path does not exist. Please enter a valid path.")
+
+        if "Error" not in encrypted_content:
+            try:
+                key = load_key(file_name)  # Load the encryption key for this file
+                decrypted_content = decrypt_file_content(encrypted_content, key)  # Decrypt the file content
+                with open(dest_path, 'w', encoding='utf-8') as f:
+                    f.write(decrypted_content)
+                print(f"File downloaded and decrypted successfully to '{dest_path}'")
+            except Exception as e:
+                print(f"Error decrypting or saving file: {e}")
+        else:
+            print(encrypted_content)  # Print error message from the server
+    else:
+        print(response)  # Print the server's response if the file is not found
 
 def main():
     # Ask user for the server IP address

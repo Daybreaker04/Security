@@ -14,6 +14,8 @@ from file_management import (
     handle_share_file,
     handle_read_file,
     handle_show_files,
+    handle_upload_file,
+    handle_download_file 
 )
 
 # Global lock for database access
@@ -360,6 +362,7 @@ def post_login_menu(client_socket, username):
 
         while True:
             # Send the post-login menu options
+            # NEW CODE START: Updated menu with upload and download options
             if account_type == "admin":
                 client_socket.send(
                     "Post-login Menu:\n"
@@ -369,10 +372,12 @@ def post_login_menu(client_socket, username):
                     "4. Share file\n"
                     "5. Read file\n"
                     "6. Show files\n"
-                    "7. Log out\n"
-                    "8. Shut down\n"
-                    "9. Access server logs\n"
-                    "Enter your choice (1-9): ".encode()
+                    "7. Upload file\n"  
+                    "8. Download file\n"  
+                    "9. Log out\n"
+                    "10. Shut down\n"
+                    "11. Access server logs\n"
+                    "Enter your choice (1-11): ".encode()
                 )
             else:
                 client_socket.send(
@@ -383,10 +388,13 @@ def post_login_menu(client_socket, username):
                     "4. Share file\n"
                     "5. Read file\n"
                     "6. Show files\n"
-                    "7. Log out\n"
-                    "8. Shut down\n"
-                    "Enter your choice (1-8): ".encode()
+                    "7. Upload file\n" 
+                    "8. Download file\n"  
+                    "9. Log out\n"
+                    "10. Shut down\n"
+                    "Enter your choice (1-10): ".encode()
                 )
+            # NEW CODE END
 
             # Receive the client's choice
             choice = client_socket.recv(1024).decode().strip()
@@ -404,22 +412,27 @@ def post_login_menu(client_socket, username):
                 handle_read_file(client_socket, username)
             elif choice == "6":
                 handle_show_files(client_socket, username)
-
-            # Handle logout, shutdown, and access logs
+            # NEW CODE START: Handle new upload and download choices
             elif choice == "7":
+                handle_upload_file(client_socket, username)  # Call upload function
+            elif choice == "8":
+                handle_download_file(client_socket, username)  # Call download function
+            # NEW CODE END
+            # Handle logout, shutdown, and access logs
+            elif choice == "9":
                 # Log out: Break the loop and return to the main menu
                 client_socket.send("Logging out...\n".encode())
                 print("Client has logged out and returned to the main menu.")  # Log the logout event
                 log_operation(f"Log out: User {username} logged out.")
                 break
-            elif choice == "8":
+            elif choice == "10":
                 # Shut down: Close the connection and terminate the client
                 client_socket.send("Shutting down the client...\n".encode())
                 client_socket.close()
                 print(f"User {username} chose to shut down and disconnected.")  # Log the shutdown event
                 log_operation(f"Shut down: User {username} chose to shut down and disconnected.")
                 return
-            elif choice == "9" and account_type == "admin":
+            elif choice == "11" and account_type == "admin":
                 # Access server logs: Send the log file to the client
                 try:
                     with open("server_log.txt", "r") as log_file:

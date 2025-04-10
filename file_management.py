@@ -244,3 +244,102 @@ def handle_show_files(client_socket, username):
     except Exception as e:
         client_socket.send(f"Error: {e}\n".encode())
         log_operation(f"Show files failed: {username} encountered an error - {e}.")
+
+# Function to handle file upload from client
+def handle_upload_file(client_socket, username):
+    """Handle uploading a file from the client."""
+    try:
+        client_socket.send("Upload file ".encode())  # Prompt client for local file path
+        local_file_path = client_socket.recv(1024).decode().strip()
+        print(f"Received local file path: {local_file_path}")  # Debug to confirm receipt
+        if local_file_path == "ERROR":  # Check if client reported an error
+            client_socket.send("Error: Invalid file path on client side.\n".encode())
+            return
+
+        client_socket.send("Wait for new name ".encode())  # Prompt for server-side filename
+        filename = client_socket.recv(1024).decode().strip()
+        print(f"Received file name: '{filename}'")  # Debug to confirm receipt
+        if not is_valid_filename(filename):  # Validate filename
+            client_socket.send("Error: Invalid file name.\n".encode())
+            log_operation(f"File upload failed: {username} provided invalid file name.")
+            return
+
+        file_content = client_socket.recv(4096).decode().strip()  # Receive file content
+        print("Receive file content ")  # Debug to confirm content
+        # Removed empty content check to allow empty files
+        file_path = f"files/{username}/{filename}"  # Define server-side file path
+        os.makedirs(f"files/{username}", exist_ok=True)  # Ensure directory exists
+
+        with db_lock:  # Lock database access
+            conn = sqlite3.connect("userinfo.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM files WHERE file_path = ?", (file_path,))
+            if cursor.fetchone():  # Check for duplicate file
+                client_socket.send("Error: File already exists.\n".encode())
+                log_operation(f"File upload failed: {username} tried to upload duplicate file {filename}.")
+                conn.close()
+                return
+            # Insert file metadata into database
+            cursor.execute(
+                "INSERT INTO files (filename, owner_username, file_path) VALUES (?, ?, ?)",
+                (filename, username, file_path)
+            )
+            conn.commit()
+            conn.close()
+
+        with open(file_path, "w", encoding='utf-8') as f:  # Specify encoding for consistency
+            f.write(file_content)
+
+        client_socket.send("File uploaded successfully!\n".encode())  # Notify client
+        print(f"Sent success message to client for file: {filename}")  # Debug to confirm response sent
+        log_operation(f"File uploaded: {username} uploaded file {filename}.")
+    except Exception as e:
+        client_socket.send(f"Error: {e}\n".encode())
+        print(f"Error during upload: {e}")  # Debug to show error
+        log_operation(f"File upload failed: {username} encountered an error - {e}.")
+
+# Function to handle file download to client
+def handle_download_file(client_socket, username):
+    """Handle downloading a file to the client."""
+    try:
+        client_socket.send("Download file".encode())  # Prompt for filename
+        filename = client_socket.recv(1024).decode().strip()
+
+        with db_lock:  # Lock database access
+            conn = sqlite3.connect("userinfo.db")
+            cursor = conn.cursor()
+            # Check if user owns the file
+            cursor.execute("SELECT file_path FROM files WHERE filename = ? AND owner_username = ?", (filename, username))
+            result = cursor.fetchone()
+            if not result:  # Check if file is shared with user
+                cursor.execute("""
+                    SELECT f.file_path 
+                    FROM files f 
+                    JOIN shared_files sf ON f.id = sf.file_id 
+                    WHERE f.filename = ? AND sf.shared_with_username = ?
+                """, (filename, username))
+                result = cursor.fetchone()
+            conn.close()
+
+        if not result or not os.path.exists(result[0]):  # Validate file existence and access
+            client_socket.send("Error: File not found or access denied.\n".encode())
+            log_operation(f"File download failed: {username} tried to download unauthorized or non-existent file {filename}.")
+            return
+        
+        # Notify the client that the file was found
+        client_socket.send("File found. Preparing to send content...\n".encode())
+
+        # Wait for the client's confirmation message
+        confirmation = client_socket.recv(1024).decode().strip()
+        if confirmation != "Ready to receive file content":
+            log_operation(f"File download aborted: {username} did not confirm readiness to receive file {filename}.")
+            return
+
+        with open(result[0], "r") as f:  # Read file content
+            content = f.read()
+
+        client_socket.send(content.encode())  # Send file content to client
+        log_operation(f"File downloaded: {username} downloaded file {filename}.")
+    except Exception as e:
+        client_socket.send(f"Error: {e}\n".encode())
+        log_operation(f"File download failed: {username} encountered an error - {e}.")
