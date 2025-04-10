@@ -4,45 +4,72 @@ import string
 from threading import RLock
 from datetime import datetime
 
-# Global lock for database access
+# Global lock for database access to prevent race conditions
 db_lock = RLock()
 
 def log_operation(message):
-    """Log critical operations to a text file with a timestamp."""
+    """
+    Log critical operations to a text file with a timestamp.
+
+    Args:
+        message (str): The message to log.
+    """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get the current timestamp
     with open("server_log.txt", "a") as log_file:  # Open the log file in append mode
         log_file.write(f"[{timestamp}] {message}\n")  # Write the timestamp and message
 
 def is_valid_filename(filename):
-    """Validate the file name to prevent directory traversal and invalid characters."""
+    """
+    Validate the file name to prevent directory traversal and invalid characters.
+
+    Args:
+        filename (str): The file name to validate.
+
+    Returns:
+        bool: True if the file name is valid, False otherwise.
+    """
+    # Prevent directory traversal by disallowing '/' and '..'
     if any(char in filename for char in ['/', '\\', '..']):
         return False
+    # Allow only alphanumeric characters, underscores, hyphens, and dots
     valid_chars = set(string.ascii_letters + string.digits + '_-.')
     return all(char in valid_chars for char in filename) and len(filename) > 0
 
 def handle_add_file(client_socket, username):
-    """Handle adding a new file with single-line content input."""
+    """
+    Handle adding a new file with single-line content input.
+
+    Args:
+        client_socket (socket): The socket connected to the client.
+        username (str): The username of the client.
+    """
     try:
+        # Prompt the client for the file name
         client_socket.send("Enter file name: ".encode())
         filename = client_socket.recv(1024).decode().strip()
         if not filename or not is_valid_filename(filename):
+            # Validate the file name
             client_socket.send("Error: Invalid file name.\n".encode())
             log_operation(f"File add failed: {username} provided invalid file name.")
             return
 
+        # Prompt the client for the file content
         client_socket.send("Enter file content (single line): ".encode())
         content = client_socket.recv(4096).decode().strip()
         if not content:
+            # Ensure the file content is not empty
             client_socket.send("Error: File content cannot be empty.\n".encode())
             log_operation(f"File add failed: {username} provided empty content for file {filename}.")
             return
 
+        # Construct the file path and ensure the directory exists
         file_path = f"files/{username}/{filename}"
         os.makedirs(f"files/{username}", exist_ok=True)
 
-        with db_lock:
+        with db_lock:  # Lock database access to prevent race conditions
             conn = sqlite3.connect("userinfo.db")
             cursor = conn.cursor()
+            # Check if the file already exists
             cursor.execute("SELECT id FROM files WHERE file_path = ?", (file_path,))
             if cursor.fetchone():
                 client_socket.send("Error: File already exists.\n".encode())
@@ -50,6 +77,7 @@ def handle_add_file(client_socket, username):
                 conn.close()
                 return
 
+            # Insert the file metadata into the database
             cursor.execute(
                 "INSERT INTO files (filename, owner_username, file_path) VALUES (?, ?, ?)",
                 (filename, username, file_path)
@@ -57,80 +85,110 @@ def handle_add_file(client_socket, username):
             conn.commit()
             conn.close()
 
+        # Write the file content to the server
         with open(file_path, "w") as f:
             f.write(content)
 
+        # Notify the client of success
         client_socket.send("File added successfully!\n".encode())
         log_operation(f"File added: {username} created file {filename}.")
     except Exception as e:
+        # Handle any unexpected errors
         client_socket.send(f"Error: {e}\n".encode())
         log_operation(f"File add failed: {username} encountered an error - {e}.")
 
 def handle_edit_file(client_socket, username):
-    """Handle editing an existing file."""
+    """
+    Handle editing an existing file.
+
+    Args:
+        client_socket (socket): The socket connected to the client.
+        username (str): The username of the client.
+    """
     try:
+        # Prompt the client for the file name to edit
         client_socket.send("Enter file name to edit: ".encode())
         filename = client_socket.recv(1024).decode().strip()
         file_path = f"files/{username}/{filename}"
 
-        with db_lock:
+        with db_lock:  # Lock database access to prevent race conditions
             conn = sqlite3.connect("userinfo.db")
             cursor = conn.cursor()
+            # Check if the file belongs to the user
             cursor.execute("SELECT owner_username FROM files WHERE file_path = ?", (file_path,))
             result = cursor.fetchone()
             conn.close()
 
             if not result or result[0] != username:
+                # Deny access if the file does not belong to the user
                 client_socket.send("Error: You can only edit your own files.\n".encode())
                 log_operation(f"File edit failed: {username} tried to edit unauthorized file {filename}.")
                 return
 
         if not os.path.exists(file_path):
+            # Ensure the file exists before editing
             client_socket.send("Error: File does not exist.\n".encode())
             log_operation(f"File edit failed: {username} tried to edit non-existent file {filename}.")
             return
 
+        # Prompt the client for the new content
         client_socket.send("Enter new content: ".encode())
         new_content = client_socket.recv(4096).decode().strip()
 
+        # Write the new content to the file
         with open(file_path, "w") as f:
             f.write(new_content)
 
+        # Notify the client of success
         client_socket.send("File edited successfully!\n".encode())
         log_operation(f"File edited: {username} modified file {filename}.")
     except Exception as e:
+        # Handle any unexpected errors
         client_socket.send(f"Error: {e}\n".encode())
         log_operation(f"File edit failed: {username} encountered an error - {e}.")
 
 def handle_delete_file(client_socket, username):
-    """Handle deleting an existing file."""
+    """
+    Handle deleting an existing file.
+
+    Args:
+        client_socket (socket): The socket connected to the client.
+        username (str): The username of the client.
+    """
     try:
+        # Prompt the client for the file name to delete
         client_socket.send("Enter file name to delete: ".encode())
         filename = client_socket.recv(1024).decode().strip()
         file_path = f"files/{username}/{filename}"
 
-        with db_lock:
+        with db_lock:  # Lock database access to prevent race conditions
             conn = sqlite3.connect("userinfo.db")
             cursor = conn.cursor()
+            # Check if the file belongs to the user
             cursor.execute("SELECT owner_username FROM files WHERE file_path = ?", (file_path,))
             result = cursor.fetchone()
 
             if not result or result[0] != username:
+                # Deny access if the file does not belong to the user
                 client_socket.send("Error: You can only delete your own files.\n".encode())
                 log_operation(f"File delete failed: {username} tried to delete unauthorized file {filename}.")
                 conn.close()
                 return
 
+            # Delete the file metadata from the database
             cursor.execute("DELETE FROM files WHERE file_path = ?", (file_path,))
             conn.commit()
             conn.close()
 
         if os.path.exists(file_path):
+            # Delete the file from the server
             os.remove(file_path)
 
+        # Notify the client of success
         client_socket.send("File deleted successfully!\n".encode())
         log_operation(f"File deleted: {username} removed file {filename}.")
     except Exception as e:
+        # Handle any unexpected errors
         client_socket.send(f"Error: {e}\n".encode())
         log_operation(f"File delete failed: {username} encountered an error - {e}.")
 

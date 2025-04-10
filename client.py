@@ -7,7 +7,15 @@ import base64
 import secrets
 
 def generate_key(file_name):
-    """Generate and save a secure key for encryption."""
+    """
+    Generate and save a secure key for encryption.
+
+    Args:
+        file_name (str): The name of the file for which the key is generated.
+
+    Returns:
+        bytes: The generated encryption key.
+    """
     # Ensure the "file_key" directory exists
     key_dir = "file_key"
     os.makedirs(key_dir, exist_ok=True)
@@ -20,14 +28,31 @@ def generate_key(file_name):
     return key
 
 def load_key(file_name):
-    """Load the encryption key from the key file."""
+    """
+    Load the encryption key from the key file.
+
+    Args:
+        file_name (str): The name of the file for which the key is loaded.
+
+    Returns:
+        bytes: The encryption key.
+    """
     key_dir = "file_key"
     key_path = os.path.join(key_dir, f"{file_name}_key.txt")
     with open(key_path, 'rb') as key_file:
         return key_file.read()
 
 def encrypt_file_content(content, key):
-    """Encrypt the file content using AES."""
+    """
+    Encrypt the file content using AES encryption.
+
+    Args:
+        content (str): The plaintext content to encrypt.
+        key (bytes): The encryption key.
+
+    Returns:
+        str: The encrypted content encoded in Base64.
+    """
     iv = secrets.token_bytes(16)  # Generate a random initialization vector
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
@@ -37,7 +62,16 @@ def encrypt_file_content(content, key):
     return base64.b64encode(iv + ciphertext).decode()  # Encode IV and ciphertext together
 
 def decrypt_file_content(ciphertext, key):
-    """Decrypt the file content using AES."""
+    """
+    Decrypt the file content using AES decryption.
+
+    Args:
+        ciphertext (str): The encrypted content encoded in Base64.
+        key (bytes): The encryption key.
+
+    Returns:
+        str: The decrypted plaintext content.
+    """
     data = base64.b64decode(ciphertext)
     iv = data[:16]  # Extract the IV
     ciphertext = data[16:]  # Extract the actual ciphertext
@@ -49,7 +83,12 @@ def decrypt_file_content(ciphertext, key):
     return plaintext.decode()
 
 def handle_post_login_menu(client_socket):
-    """Handle the post-login menu."""
+    """
+    Handle the post-login menu.
+
+    Args:
+        client_socket (socket): The socket connected to the server.
+    """
     while True:
         # Receive and print the post-login menu from the server
         menu_prompt = client_socket.recv(1024).decode().strip()
@@ -75,7 +114,6 @@ def handle_post_login_menu(client_socket):
             upload_file_to_server(client_socket)
         elif "Enter file name" in response:
             handle_file_operations(client_socket, response)  # Handle file-related operations
-        
         else:
             print(response)  # Print other responses (e.g., errors)
 
@@ -84,8 +122,8 @@ def handle_file_operations(client_socket, server_prompt):
     Handle file-related operations such as adding, editing, deleting, sharing, reading, and showing files.
 
     Args:
-        client_socket: The socket connected to the server.
-        server_prompt: The initial prompt from the server for the file operation.
+        client_socket (socket): The socket connected to the server.
+        server_prompt (str): The initial prompt from the server for the file operation.
     """
     # Print the server's prompt and ask the user for the file name
     print(server_prompt, end=" ")
@@ -130,7 +168,12 @@ def handle_file_operations(client_socket, server_prompt):
         print(response)
 
 def upload_file_to_server(client_socket):
-    """Handle uploading a file to the server with encryption."""
+    """
+    Handle uploading a file to the server with encryption.
+
+    Args:
+        client_socket (socket): The socket connected to the server.
+    """
     local_file_path = input("Enter the absolute local file path to upload: ").strip()
     if not os.path.exists(local_file_path):
         print(f"Error: File does not exist at '{local_file_path}'")
@@ -168,7 +211,12 @@ def upload_file_to_server(client_socket):
         print(server_response)
 
 def download_file_from_server(client_socket):
-    """Handle downloading a file from the server with decryption."""
+    """
+    Handle downloading a file from the server with decryption.
+
+    Args:
+        client_socket (socket): The socket connected to the server.
+    """
     file_name = input("Enter the file name to download (without suffix .txt): ").strip()
     client_socket.send(file_name.encode())  # Send the file name to the server
 

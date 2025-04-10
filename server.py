@@ -18,29 +18,44 @@ from file_management import (
     handle_download_file 
 )
 
-# Global lock for database access
+# Global lock for database access to prevent race conditions
 db_lock = threading.RLock()
 
 # Flag to indicate if the server should keep running
 server_running = True
 
-# Email validation function
 def is_valid_email(email):
-    """Validate the email address using a regular expression."""
+    """
+    Validate the email address using a regular expression.
+
+    Args:
+        email (str): The email address to validate.
+
+    Returns:
+        bool: True if the email address is valid, False otherwise.
+    """
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(email_regex, email) is not None
 
 def log_operation(message):
-    """Log critical operations to a text file with a timestamp."""
+    """
+    Log critical operations to a text file with a timestamp.
+
+    Args:
+        message (str): The message to log.
+    """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get the current timestamp
     with open("server_log.txt", "a") as log_file:  # Open the log file in append mode
         log_file.write(f"[{timestamp}] {message}\n")  # Write the timestamp and message
 
-# Database setup
 def setup_database():
+    """
+    Set up the SQLite database with required tables for users, files, and shared files.
+    """
     # Connect to the SQLite database (creates the file if it doesn't exist)
     conn = sqlite3.connect("userinfo.db")
     cursor = conn.cursor()
+
     # Create the users table if it doesn't exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -78,8 +93,13 @@ def setup_database():
     conn.commit()
     conn.close()
 
-# Handle client requests (registration, login, password reset)
 def handle_client(client_socket):
+    """
+    Handle client requests for registration, login, and password reset.
+
+    Args:
+        client_socket (socket): The socket connected to the client.
+    """
     try:
         while True:  # Loop to allow the client to return to the main menu after logging out
             # Send welcome message to the client with numeric options
@@ -95,11 +115,11 @@ def handle_client(client_socket):
             choice = client_socket.recv(1024).decode().strip()
 
             if choice == "1":
-                handle_registration(client_socket)
+                handle_registration(client_socket)  # Handle user registration
             elif choice == "2":
-                handle_login(client_socket)
+                handle_login(client_socket)  # Handle user login
             elif choice == "3":
-                handle_password_reset(client_socket)
+                handle_password_reset(client_socket)  # Handle password reset
             else:
                 client_socket.send("Invalid option. Please try again.\n".encode())
     except Exception as e:
@@ -109,8 +129,13 @@ def handle_client(client_socket):
         client_socket.close()
         print("Client connection closed.")
 
-# Handle client registration
 def handle_registration(client_socket):
+    """
+    Handle user registration by collecting username, password, and email.
+
+    Args:
+        client_socket (socket): The socket connected to the client.
+    """
     try:
         while True:  # Loop until the user successfully registers
             # Prompt the client for a username
@@ -170,6 +195,9 @@ def handle_registration(client_socket):
         client_socket.send(f"Error: {e}\n".encode())
         print(f"An error occurred during registration: {e}")  # Debugging statement
         log_operation(f"An error occurred during registration for user {username}: {e}")
+
+# Additional functions like `handle_login`, `handle_password_reset`, `post_login_menu`, and `start_server`
+# should also have similar docstrings and comments for clarity.
 
 # Handle client login
 def handle_login(client_socket):
