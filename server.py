@@ -37,6 +37,32 @@ def is_valid_email(email):
     email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(email_regex, email) is not None
 
+def is_valid_username(username):
+    """
+    Validate the username to ensure it contains only alphanumeric characters and underscores.
+
+    Args:
+        username (str): The username to validate.
+
+    Returns:
+        bool: True if the username is valid, False otherwise.
+    """
+    # Allow only alphanumeric characters and underscores, and limit length to 3-20 characters
+    return bool(re.match(r'^[a-zA-Z0-9_]{3,20}$', username))
+
+def is_valid_password(password):
+    """
+    Validate the password to ensure it meets security requirements.
+
+    Args:
+        password (str): The password to validate.
+
+    Returns:
+        bool: True if the password is valid, False otherwise.
+    """
+    # Password must be at least 6 characters long and contain at least one letter and one number
+    return bool(re.match(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$', password))
+
 def log_operation(message):
     """
     Log critical operations to a text file with a timestamp.
@@ -121,7 +147,7 @@ def handle_client(client_socket):
             elif choice == "3":
                 handle_password_reset(client_socket)  # Handle password reset
             else:
-                client_socket.send("Invalid option. Please try again.\n".encode())
+                continue
     except Exception as e:
         print(f"An error occurred while handling the client: {e}")
     finally:
@@ -139,12 +165,28 @@ def handle_registration(client_socket):
     try:
         while True:  # Loop until the user successfully registers
             # Prompt the client for a username
-            client_socket.send("Enter username: ".encode())
-            username = client_socket.recv(1024).decode().strip()
+            while True:
+                client_socket.send("Enter username: ".encode())
+                username = client_socket.recv(1024).decode().strip()
+
+                # Validate the username
+                if is_valid_username(username):
+                    break  # Exit the loop if the username is valid
+                else:
+                    client_socket.send("Error: Invalid username. Use only alphanumeric characters and underscores (3-20 characters).\n".encode())
+                    print(f"Invalid username provided: {username}")  # Debugging statement
 
             # Prompt the client for a password
-            client_socket.send("Enter password: ".encode())
-            password = client_socket.recv(1024).decode().strip()
+            while True:
+                client_socket.send("Enter password: ".encode())
+                password = client_socket.recv(1024).decode().strip()
+
+                # Validate the password
+                if is_valid_password(password):
+                    break  # Exit the loop if the password is valid
+                else:
+                    client_socket.send("Error: Password must be at least 6 characters long and contain at least one letter and one number.\n".encode())
+                    print(f"Invalid password provided: {password}")  # Debugging statement
 
             # Prompt the client for an email address
             while True:
@@ -206,6 +248,11 @@ def handle_login(client_socket):
             # Prompt the client for a username
             client_socket.send("Enter username: ".encode())
             username = client_socket.recv(1024).decode().strip()
+
+            # Validate the username
+            if not is_valid_username(username):
+                client_socket.send("Error: Invalid username. Please try again.\n".encode())
+                continue
 
             # Use the lock to ensure exclusive access to the database
             with db_lock:
@@ -396,9 +443,11 @@ def post_login_menu(client_socket, username):
                     "Post-login Menu:\n"
                     "1. Add file\n"
                     "2. Edit file\n"
+                    "------ Above two are addtional functions ------\n"  
+                    "------ Add and edit are conducted in plaintext ------\n"  
                     "3. Delete file\n"
                     "4. Share file\n"
-                    "5. Read file\n"
+                    "5. Read file (for file created by choice 1)\n"
                     "6. Show files\n"
                     "7. Upload file\n"  
                     "8. Download file\n"  
@@ -412,9 +461,11 @@ def post_login_menu(client_socket, username):
                     "Post-login Menu:\n"
                     "1. Add file\n"
                     "2. Edit file\n"
+                    "------ Above two are addtional functions ------\n"  
+                    "------ Add and edit are conducted in plaintext ------\n"  
                     "3. Delete file\n"
                     "4. Share file\n"
-                    "5. Read file\n"
+                    "5. Read file (for file created by choice 1)\n"
                     "6. Show files\n"
                     "7. Upload file\n" 
                     "8. Download file\n"  

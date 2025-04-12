@@ -97,7 +97,7 @@ def handle_post_login_menu(client_socket):
         client_socket.send(choice.encode())  # Send the choice to the server
 
         # Receive the server's response
-        response = client_socket.recv(4096).decode().strip()
+        response = client_socket.recv(8192).decode().strip()
 
         if "Logging out" in response:
             print(response)

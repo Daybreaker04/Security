@@ -132,11 +132,11 @@ def handle_edit_file(client_socket, username):
             return
 
         # Prompt the client for the new content
-        client_socket.send("Enter new content: ".encode())
+        client_socket.send("Enter file content (appended to orginal content): ".encode())
         new_content = client_socket.recv(4096).decode().strip()
 
         # Write the new content to the file
-        with open(file_path, "w") as f:
+        with open(file_path, "a") as f:
             f.write(new_content)
 
         # Notify the client of success
@@ -309,9 +309,7 @@ def handle_upload_file(client_socket, username):
     try:
         client_socket.send("Upload file ".encode())  # Prompt client for local file path
         local_file_path = client_socket.recv(1024).decode().strip()
-        print(f"Received local file path: {local_file_path}")  # Debug to confirm receipt
         if local_file_path == "ERROR":  # Check if client reported an error
-            client_socket.send("Error: Invalid file path on client side.\n".encode())
             return
 
         client_socket.send("Wait for new name ".encode())  # Prompt for server-side filename
